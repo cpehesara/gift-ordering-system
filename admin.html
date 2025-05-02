@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Admin - Manage Toys</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f5f5f5;
+        padding: 30px;
+      }
+
+      h1 {
+        text-align: center;
+        color: #444;
+      }
+
+      .form-section,
+      .list-section {
+        margin: 20px auto;
+        max-width: 600px;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      input,
+      button {
+        padding: 10px;
+        margin: 5px 0;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      button {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      .toy-entry {
+        border-bottom: 1px solid #ccc;
+        padding: 10px 0;
+      }
+
+      .toy-entry span {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      .actions button {
+        margin-right: 10px;
+        width: auto;
+      }
+
+      .actions {
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Admin Panel - Toy Management</h1>
+
+    <div class="form-section">
+      <h2>Create / Update Toy</h2>
+      <input type="text" id="toyid" placeholder="Toy ID (e.g. t001)" />
+      <input type="text" id="toyname" placeholder="Toy Name" />
+      <input type="number" id="stock" placeholder="Available Stock" />
+      <button onclick="saveToy()">Save Toy</button>
+    </div>
+
+    <div class="list-section">
+      <h2>All Toys</h2>
+      <div id="toyList">Loading toys...</div>
+    </div>
+
+    <script>
+      const API_BASE = "http://localhost:8080/api/toys";
+
+      function loadToys() {
+        fetch(`${API_BASE}/getToys`)
+          .then((res) => res.json())
+          .then((toys) => {
+            const toyList = document.getElementById("toyList");
+            toyList.innerHTML = "";
+
+            if (!toys.length) {
+              toyList.innerHTML = "<p>No toys available.</p>";
+              return;
+            }
+
+            toys.forEach((toy) => {
+              const div = document.createElement("div");
+              div.className = "toy-entry";
+              div.innerHTML = `
+            <span><strong>ID:</strong> ${toy.toyid}</span>
+            <span><strong>Name:</strong> ${toy.toyname}</span>
+            <span><strong>Stock:</strong> ${toy.available_stock}</span>
+            <div class="actions">
+              <button onclick='populateForm(${JSON.stringify(
+                toy
+              )})'>Edit</button>
+              <button onclick='deleteToy(${JSON.stringify(
+                toy
+              )})' style="background-color: crimson;">Delete</button>
+            </div>
+          `;
+              toyList.appendChild(div);
+            });
+          })
+          .catch(() => {
+            document.getElementById("toyList").innerHTML =
+              "<p>Error loading toys.</p>";
+          });
+      }
+
+      function saveToy() {
+        const toyid = document.getElementById("toyid").value.trim();
+        const toyname = document.getElementById("toyname").value.trim();
+        const available_stock = parseInt(
+          document.getElementById("stock").value.trim()
+        );
+
+        if (!toyid || !toyname || isNaN(available_stock)) {
+          alert("Please fill all fields.");
+          return;
+        }
+
+        const toy = { toyid, toyname, available_stock };
+
+        // Try updating first
+        fetch(`${API_BASE}/updateToy/${toyid}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(toy),
+        })
+          .then((res) => {
+            if (!res.ok) {
+              // If update fails, fallback to create
+              return fetch(`${API_BASE}/saveToy`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(toy),
+              });
+            }
+            return res;
+          })
+          .then(() => {
+            clearForm();
+            loadToys();
+          })
+          .catch(() => alert("Error saving toy"));
+      }
+
+      function deleteToy(toy) {
+        if (!confirm(`Are you sure you want to delete toy ${toy.toyid}?`))
+          return;
+
+        fetch(`${API_BASE}/deleteToy`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(toy),
+        })
+          .then(() => loadToys())
+          .catch(() => alert("Failed to delete toy"));
+      }
+
+      function populateForm(toy) {
+        document.getElementById("toyid").value = toy.toyid;
+        document.getElementById("toyname").value = toy.toyname;
+        document.getElementById("stock").value = toy.available_stock;
+      }
+
+      function clearForm() {
+        document.getElementById("toyid").value = "";
+        document.getElementById("toyname").value = "";
+        document.getElementById("stock").value = "";
+      }
+
+      loadToys();
+    </script>
+  </body>
+</html>
